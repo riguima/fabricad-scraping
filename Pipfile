@@ -4,10 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyside6 = "*"
 qt-material = "*"
-undetected-chromedriver = "*"
 toml = "*"
+undetected-chromedriver = "*"
+pyside6 = "*"
+setuptools = "*"
+rich = "*"
+browsermob-proxy = "*"
+m3u8-to-mp4 = "*"
+httpx = "*"
 
 [dev-packages]
 blue = "*"
@@ -15,4 +20,4 @@ isort = "*"
 ruff = "*"
 
 [requires]
-python_version = "3.11"
+python_version = "3.12"

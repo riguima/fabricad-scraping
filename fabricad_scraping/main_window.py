@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6 import QtCore, QtWidgets
 
 from fabricad_scraping.browser import Browser
@@ -10,9 +12,20 @@ class MainWindow(QtWidgets.QWidget):
         self.browser = Browser(headless=False)
         self.browser.make_login()
 
-        self.setFixedSize(600, 600)
+        self.setFixedSize(600, 200)
         with open('styles.qss', 'r') as f:
             self.setStyleSheet(f.read())
+
+        self.download_folder_label = QtWidgets.QLabel('Pasta para Download')
+        self.download_folder_input = QtWidgets.QLineEdit()
+        self.download_folder_input.setReadOnly(True)
+        self.download_folder_button = QtWidgets.QPushButton('Selecionar')
+        self.download_folder_button.clicked.connect(
+            self.choose_download_folder
+        )
+        self.download_folder_layout = QtWidgets.QHBoxLayout()
+        self.download_folder_layout.addWidget(self.download_folder_input)
+        self.download_folder_layout.addWidget(self.download_folder_button)
 
         self.discipline_label = QtWidgets.QLabel('Disciplina')
         self.discipline_combobox = QtWidgets.QComboBox()
@@ -38,9 +51,17 @@ class MainWindow(QtWidgets.QWidget):
         self.download_course_button.clicked.connect(self.download_course)
 
         self.main_layout = QtWidgets.QVBoxLayout(self)
+        self.main_layout.addWidget(self.download_folder_label)
+        self.main_layout.addLayout(self.download_folder_layout)
         self.main_layout.addLayout(self.discipline_layout)
         self.main_layout.addLayout(self.course_layout)
         self.main_layout.addWidget(self.download_course_button)
+
+    @QtCore.Slot()
+    def choose_download_folder(self):
+        self.download_folder_input.setText(
+            QtWidgets.QFileDialog.getExistingDirectory()
+        )
 
     @QtCore.Slot()
     def update_course_combobox(self, text):
@@ -52,4 +73,5 @@ class MainWindow(QtWidgets.QWidget):
         self.browser.download_course(
             self.discipline_combobox.currentText(),
             self.course_combobox.currentText(),
+            Path(self.download_folder_input.text()),
         )
