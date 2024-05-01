@@ -16,6 +16,8 @@ class MainWindow(QtWidgets.QWidget):
         with open('styles.qss', 'r') as f:
             self.setStyleSheet(f.read())
 
+        self.message_box = QtWidgets.QMessageBox()
+
         self.download_folder_label = QtWidgets.QLabel('Pasta para Download')
         self.download_folder_input = QtWidgets.QLineEdit()
         self.download_folder_input.setReadOnly(True)
@@ -75,3 +77,5 @@ class MainWindow(QtWidgets.QWidget):
             self.course_combobox.currentText(),
             Path(self.download_folder_input.text()),
         )
+        self.message_box.setText('Finalizado!')
+        self.message_box.show()

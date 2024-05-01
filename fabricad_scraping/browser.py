@@ -6,9 +6,7 @@ from time import sleep
 import browsermobproxy as mob
 import undetected_chromedriver as uc
 from httpx import get
-from selenium.common.exceptions import (ElementClickInterceptedException,
-                                        ElementNotInteractableException,
-                                        TimeoutException)
+from selenium.common.exceptions import ElementNotInteractableException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -80,62 +78,95 @@ class Browser:
                         break
                 if selected:
                     break
-        for group in self.find_elements('.list-group-item'):
+        for e in range(len(self.find_elements('.list-group-item'))):
+            self.driver.refresh()
+            group = self.find_elements('.list-group-item')[e]
             group_folder = (
                 download_folder / group.text.split('Disponível')[0].strip()
             )
             os.makedirs(group_folder, exist_ok=True)
-            group.click()
-            for lesson in self.find_elements('.list-unstyled li'):
-                lesson_text = lesson.text.split('Disponível')[0].strip()
-                lesson_folder = group_folder / lesson_text
-                while True:
-                    try:
-                        lesson.click()
-                        break
-                    except (
-                        ElementClickInterceptedException,
-                        ElementNotInteractableException,
+            self.driver.execute_script('arguments[0].click()', group)
+            clicked_lessons = []
+            while True:
+                click = False
+                for lesson in self.find_elements('.list-unstyled li'):
+                    if (
+                        'openTopic' in lesson.get_attribute('onclick')
+                        and lesson not in clicked_lessons
                     ):
-                        continue
-                os.makedirs(lesson_folder, exist_ok=True)
-                for i, video in enumerate(
-                    self.find_elements('li', element=lesson)
-                ):
-                    try:
-                        self.find_element('.fa-video', element=video, wait=5)
-                        if f'{lesson_text} - {i + 1}.mp4' in os.listdir(
-                            lesson_folder
-                        ):
-                            continue
-                        while True:
-                            try:
-                                video.click()
-                                break
-                            except (
-                                ElementNotInteractableException,
-                                ElementClickInterceptedException,
-                            ):
+                        clicked_lessons.append(lesson)
+                        click = True
+                        lesson_text = lesson.text.split('Disponível')[
+                            0
+                        ].strip()
+                        while not lesson_text:
+                            lesson_text = lesson.text.split('Disponível')[
+                                0
+                            ].strip()
+                        lesson_folder = group_folder / lesson_text
+                        self.driver.execute_script(
+                            'arguments[0].click()', lesson
+                        )
+                        os.makedirs(lesson_folder, exist_ok=True)
+                if not click:
+                    break
+                sleep(3)
+            already_clicked_videos = []
+            for lesson in self.find_elements('.list-unstyled li'):
+                if 'openTopic' in lesson.get_attribute('onclick'):
+                    for i, video in enumerate(
+                        self.find_elements('li', element=lesson)
+                    ):
+                        video_onclick = video.get_attribute('onclick')
+                        if 'openMedia' in video_onclick:
+                            if video_onclick in already_clicked_videos:
                                 continue
-                        self.download_page_video(lesson_folder, lesson_text, i)
-                    except TimeoutException:
-                        while True:
-                            try:
-                                video.click()
-                                break
-                            except (
-                                ElementNotInteractableException,
-                                ElementClickInterceptedException,
+                            already_clicked_videos.append(video_onclick)
+                            lesson_text = lesson.text.split('Disponível')[
+                                0
+                            ].strip()
+                            while not lesson_text:
+                                lesson_text = lesson.text.split('Disponível')[
+                                    0
+                                ].strip()
+                            lesson_folder = group_folder / lesson_text
+                            if video.find_elements(
+                                By.CSS_SELECTOR, '.fa-video'
+                            ) and f'{lesson_text} - {i + 1}.mp4' not in os.listdir(
+                                lesson_folder
                             ):
-                                continue
-                        self.download_page_pdf(lesson_folder)
-            group.click()
+                                while True:
+                                    try:
+                                        video.click()
+                                        break
+                                    except:
+                                        continue
+                                self.download_page_video(
+                                    lesson_folder, lesson_text, i
+                                )
+                            elif video.find_elements(
+                                By.CSS_SELECTOR, '.fa-file'
+                            ):
+                                while True:
+                                    try:
+                                        video.click()
+                                        break
+                                    except:
+                                        continue
+                                self.download_page_pdf(lesson_folder)
 
     def download_page_video(self, lesson_folder, lesson_text, index):
         har_data = str(self.proxy.new_har())
-        while 'playlist' not in har_data:
-            sleep(1)
+        for i in range(30):
+            if 'playlist' in har_data:
+                break
             har_data = str(self.proxy.new_har())
+            sleep(1)
+            if i == 29:
+                self.driver.execute_script(
+                    'arguments[0].click()', self.find_element('#btnClose1')
+                )
+                return
         m3u8_url = re.findall(
             r'https://svbp-sambavideos\.akamaized\.net/voda/_definst_/.+?playlist\.m3u8',
             har_data,
@@ -147,15 +178,20 @@ class Browser:
             response = get(m3u8_url)
             f.write(response.content)
         os.system(
-            f"ffmpeg -y -i '{m3u8_url}' -c copy -bsf:a aac_adtstoasc '{lesson_folder / lesson_text} - {index + 1}.mp4'"
+            f"ffmpeg -y -i '{m3u8_url}' -c copy -bsf:a aac_adtstoasc '{lesson_folder / lesson_text} - {index + 1}.mp4' > /dev/null"
         )
         os.remove(f'{lesson_folder / lesson_text} - {index + 1}.m3u8')
-        self.find_element('#btnClose1').click()
+        self.driver.execute_script(
+            'arguments[0].click()', self.find_element('#btnClose1')
+        )
 
     def download_page_pdf(self, lesson_folder):
         pdf_filename = self.find_element('#path').get_attribute('value')
-        if pdf_filename in os.listdir(Path(lesson_folder)):
-            self.find_element('#btnClose1').click()
+        if pdf_filename in os.listdir(lesson_folder):
+            sleep(3)
+            self.driver.execute_script(
+                'arguments[0].click()', self.find_element('#btnClose1')
+            )
             return
         while True:
             try:
@@ -167,14 +203,17 @@ class Browser:
                 ]:
                     break
             except ElementNotInteractableException:
-                sleep(1)
+                pass
+            sleep(5)
         while pdf_filename not in os.listdir(Path.home() / 'Downloads'):
             sleep(1)
         os.rename(
             Path.home() / 'Downloads' / pdf_filename,
             Path(lesson_folder) / pdf_filename,
         )
-        self.find_element('#btnClose1').click()
+        self.driver.execute_script(
+            'arguments[0].click()', self.find_element('#btnClose1')
+        )
 
     def find_element(self, selector, element=None, wait=10):
         return WebDriverWait(element or self.driver, wait).until(
