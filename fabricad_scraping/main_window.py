@@ -8,7 +8,6 @@ from fabricad_scraping.browser import Browser
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-
         self.browser = Browser(headless=False)
         self.browser.make_login()
 

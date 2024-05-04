@@ -82,7 +82,7 @@ class Browser:
             self.driver.refresh()
             group = self.find_elements('.list-group-item')[e]
             group_folder = (
-                download_folder / group.text.split('Disponível')[0].strip()
+                download_folder / group.text.split('Disponível')[0].split('\n')[0].strip()
             )
             os.makedirs(group_folder, exist_ok=True)
             self.driver.execute_script('arguments[0].click()', group)
@@ -98,11 +98,11 @@ class Browser:
                         click = True
                         lesson_text = lesson.text.split('Disponível')[
                             0
-                        ].strip()
+                        ].split('\n')[0].strip()
                         while not lesson_text:
                             lesson_text = lesson.text.split('Disponível')[
                                 0
-                            ].strip()
+                            ].split('\n')[0].strip()
                         lesson_folder = group_folder / lesson_text
                         self.driver.execute_script(
                             'arguments[0].click()', lesson
@@ -124,15 +124,15 @@ class Browser:
                             already_clicked_videos.append(video_onclick)
                             lesson_text = lesson.text.split('Disponível')[
                                 0
-                            ].strip()
+                            ].split('\n')[0].strip()
                             while not lesson_text:
                                 lesson_text = lesson.text.split('Disponível')[
                                     0
-                                ].strip()
+                                ].split('\n')[0].strip()
                             lesson_folder = group_folder / lesson_text
                             if video.find_elements(
                                 By.CSS_SELECTOR, '.fa-video'
-                            ) and f'{lesson_text} - {i + 1}.mp4' not in os.listdir(
+                            ) and f'Aula {i + 1}.mp4' not in os.listdir(
                                 lesson_folder
                             ):
                                 while True:
@@ -141,9 +141,7 @@ class Browser:
                                         break
                                     except:
                                         continue
-                                self.download_page_video(
-                                    lesson_folder, lesson_text, i
-                                )
+                                self.download_page_video(lesson_folder, i)
                             elif video.find_elements(
                                 By.CSS_SELECTOR, '.fa-file'
                             ):
@@ -155,7 +153,7 @@ class Browser:
                                         continue
                                 self.download_page_pdf(lesson_folder)
 
-    def download_page_video(self, lesson_folder, lesson_text, index):
+    def download_page_video(self, lesson_folder, index):
         har_data = str(self.proxy.new_har())
         for i in range(30):
             if 'playlist' in har_data:
@@ -172,15 +170,10 @@ class Browser:
             har_data,
             re.DOTALL,
         )[0]
-        with open(
-            f'{lesson_folder / lesson_text} - {index + 1}.m3u8', 'wb'
-        ) as f:
-            response = get(m3u8_url)
-            f.write(response.content)
+        file_path = lesson_folder / f'Aula {index + 1}.mp4'
         os.system(
-            f"ffmpeg -y -i '{m3u8_url}' -c copy -bsf:a aac_adtstoasc '{lesson_folder / lesson_text} - {index + 1}.mp4' > /dev/null"
+            f"ffmpeg -y -i '{m3u8_url}' -c copy -bsf:a aac_adtstoasc '{file_path}' > /dev/null"
         )
-        os.remove(f'{lesson_folder / lesson_text} - {index + 1}.m3u8')
         self.driver.execute_script(
             'arguments[0].click()', self.find_element('#btnClose1')
         )
